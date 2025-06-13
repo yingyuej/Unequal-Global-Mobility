@@ -1,0 +1,1122 @@
+---
+title: "tranform data"
+author: "Yingyue Jiang"
+date: "2025-06-12"
+output: pdf_document
+---
+This datafile is to transform the dataset from DEMIG VISA 2005-2013 to a social network data set that can be used for further analysis
+
+
+```{r}
+rm(list = ls())
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(fig.height = 4)
+knitr::opts_chunk$set(fig.width = 6)
+knitr::opts_chunk$set(fig.align="center")
+`%notin%` <- Negate(`%in%`)
+library(kableExtra)
+library(haven)
+library(purrr)
+library(dplyr)
+library(igraph)
+library(ggplot2)
+library(sna) #data visualiztion, cleaning, network analysis
+library(tidyr)
+library(network)
+library(readxl)
+```
+# import 2005-2013
+
+```{r}
+setwd("/Users/yingyuejiang/Desktop/Brown University/SOC 2960/visa policy/visa_data/visa")
+visa_2013<-read_excel("201301.xlsx")
+visa_202003<-read.csv("202003.csv")
+visa_2012<-read_excel("201201.xlsx")
+visa_2011<-read_excel("201101.xlsx")
+visa_2010<-read_excel("201001.xlsx")
+visa_2009<-read_excel("200901.xlsx")
+visa_2008<-read_excel("200801.xlsx")
+visa_2007<-read_excel("200701.xlsx")
+visa_2006<-read_excel("200601.xlsx")
+visa_2005<-read_excel("200501.xlsx")
+```
+
+#change the first and second column value
+```{r}
+# Get all data frame names from the environment
+df_names <- ls()[sapply(mget(ls(), .GlobalEnv), is.data.frame)]
+
+# Loop over each data frame
+for (df_name in df_names) {
+  df <- get(df_name)
+  
+  # Proceed only if there are at least 2 columns
+  if (ncol(df) >= 2) {
+    temp <- df[[1]]       # Temporarily store first column
+    df[[1]] <- df[[2]]    # Replace first column with second
+    df[[2]] <- temp       # Replace second column with original first
+    names(df)[1:2] <- names(df)[2:1]  # Swap column names too
+    assign(df_name, df, envir = .GlobalEnv)  # Save updated data frame
+  }
+}
+```
+
+##  transform
+
+```{r}
+visa_2013_new<-visa_2013%>%pivot_wider(names_from=2, values_from=3)
+visa_2012_new<-visa_2012%>%pivot_wider(names_from=2, values_from=3)
+visa_2011_new<-visa_2011%>%pivot_wider(names_from=2, values_from=3)
+visa_2010_new<-visa_2010%>%pivot_wider(names_from=2, values_from=3)
+visa_2009_new<-visa_2009%>%pivot_wider(names_from=2, values_from=3)
+visa_2008_new<-visa_2008%>%pivot_wider(names_from=2, values_from=3)
+visa_2007_new<-visa_2007%>%pivot_wider(names_from=2, values_from=3)
+visa_2006_new<-visa_2006%>%pivot_wider(names_from=2, values_from=3)
+visa_2005_new<-visa_2005%>%pivot_wider(names_from=2, values_from=3)
+```
+
+
+
+
+
+```{r}
+#change name
+names(visa_2013_new)[1]<-"Passport"
+#change country name
+visa_2013_new<-visa_2013_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+
+
+```{r}
+#change column name
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2013_new) <- ifelse(
+  names(visa_2013_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2013_new)],
+  names(visa_2013_new)
+)
+```
+
+
+
+
+```{r}
+#checking overlapping 
+#column_names<-colnames()[-1]
+row_names<-(visa_final)[[1]]
+row_names_2020<-(visa_202003)$Passport       
+#row_names_2013<-(visa_2013_1)[[1]]    
+```
+
+```{r}
+mismatch<-setdiff(row_names_2020,row_names)
+#mismatch1<-setdiff(row_names,row_names_2020)
+#mismatch2<-setdiff(row_names_2020,row_names_2013)
+```
+
+
+```{r}
+mismatch
+```
+
+
+
+```{r}
+#filter common countries
+visa_2013_1<-visa_2013_new%>%filter(Passport%in%row_names_2020)
+#filter receiving countries that also appear in the rows
+row_names_2013<-visa_2013_1$Passport  
+visa_2013_2<-visa_2013_1%>%select(Passport,all_of(intersect(row_names_2013,colnames(visa_2013_1))))
+
+```
+
+## Change visa policy value
+```{r}
+visa_2013_3 <- visa_2013_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+## filter rows that also appear in the column
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2013_3)[colnames(visa_2013_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2013_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2013_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2013_5<-visa_2013_4
+col_names <- colnames(visa_2013_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2013_5))) {
+  passport_name <-visa_2013_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2013_5[i, passport_name] <- 0
+  }
+}
+
+
+```
+
+```{r}
+View(visa_2013_5)
+```
+
+
+## save as CSV file
+
+```{r}
+write.csv(visa_2013_5, "201301.csv", row.names = FALSE)
+```
+
+#2012
+```{r}
+names(visa_2012_new)[1]<-"Passport"
+visa_2012_new<-visa_2012_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+```{r}
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2012_new) <- ifelse(
+  names(visa_2012_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2012_new)],
+  names(visa_2012_new)
+)
+```
+
+```{r}
+visa_2012_1<-visa_2012_new%>%filter(Passport%in%row_names_2020)
+row_names_2012<-visa_2012_1$Passport
+visa_2012_2<-visa_2012_1%>%select(Passport,all_of(intersect(colnames(visa_2012_1), row_names_2012)))
+```
+```{r}
+visa_2012_3 <- visa_2012_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2012_3)[colnames(visa_2012_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2012_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2012_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2012_5<-visa_2012_4
+col_names <- colnames(visa_2012_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2012_5))) {
+  passport_name <-visa_2012_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2012_5[i, passport_name] <- 0
+  }
+}
+```
+
+
+
+```{r}
+write.csv(visa_2012_5, "201201.csv", row.names = FALSE)
+```
+
+
+#2011
+```{r}
+names(visa_2011_new)[1]<-"Passport"
+visa_2011_new<-visa_2011_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+
+
+```{r}
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2011_new) <- ifelse(
+  names(visa_2011_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2011_new)],
+  names(visa_2011_new)
+)
+```
+
+```{r}
+visa_2011_1<-visa_2011_new%>%filter(Passport%in%row_names_2020)
+row_names_2011<-visa_2011_1$Passport
+visa_2011_2<-visa_2011_1%>%select(Passport,all_of(intersect(colnames(visa_2011_1), row_names_2011)))
+```
+
+```{r}
+visa_2011_3 <- visa_2011_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2011_3)[colnames(visa_2011_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2011_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2011_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2011_5<-visa_2011_4
+col_names <- colnames(visa_2011_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2011_5))) {
+  passport_name <-visa_2011_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2011_5[i, passport_name] <- 0
+  }
+}
+```
+
+
+
+
+```{r}
+write.csv(visa_2011_5, "201101.csv", row.names = FALSE)
+```
+
+#2010
+
+```{r}
+names(visa_2010_new)[1]<-"Passport"
+visa_2010_new<-visa_2010_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+
+```{r}
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2010_new) <- ifelse(
+  names(visa_2010_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2010_new)],
+  names(visa_2010_new)
+)
+```
+
+```{r}
+visa_2010_1<-visa_2010_new%>%filter(Passport%in%row_names_2020)
+row_names_2010<-visa_2010_1$Passport
+visa_2010_2<-visa_2010_1%>%select(Passport,all_of(intersect(colnames(visa_2010_1), row_names_2010)))
+```
+
+
+```{r}
+visa_2010_3 <- visa_2010_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2010_3)[colnames(visa_2010_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2010_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2010_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2010_5<-visa_2010_4
+col_names <- colnames(visa_2010_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2010_5))) {
+  passport_name <-visa_2010_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2010_5[i, passport_name] <- 0
+  }
+}
+```
+
+
+
+
+
+
+
+
+```{r}
+write.csv(visa_2010_5, "201001.csv", row.names = FALSE)
+```
+
+
+#2009
+
+```{r}
+#change name
+names(visa_2009_new)[1]<-"Passport"
+#change country name
+visa_2009_new<-visa_2009_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+
+```{r}
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2009_new) <- ifelse(
+  names(visa_2009_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2009_new)],
+  names(visa_2009_new)
+)
+```
+
+
+
+```{r}
+visa_2009_1<-visa_2009_new%>%filter(Passport%in%row_names_2020)
+row_names_2009<-visa_2009_1$Passport
+visa_2009_2<-visa_2009_1%>%select(Passport,all_of(intersect(colnames(visa_2009_1), row_names_2010)))
+```
+
+
+```{r}
+visa_2009_3 <- visa_2009_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2009_3)[colnames(visa_2009_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2009_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2009_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2009_5<-visa_2009_4
+col_names <- colnames(visa_2009_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2009_5))) {
+  passport_name <-visa_2009_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2009_5[i, passport_name] <- 0
+  }
+}
+```
+
+
+
+
+```{r}
+write.csv(visa_2009_5, "200901.csv", row.names = FALSE)
+```
+
+#2008
+
+```{r}
+#change name
+names(visa_2008_new)[1]<-"Passport"
+#change country name
+visa_2008_new<-visa_2008_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+
+```{r}
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2008_new) <- ifelse(
+  names(visa_2008_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2008_new)],
+  names(visa_2008_new)
+)
+```
+
+
+```{r}
+visa_2008_1<-visa_2008_new%>%filter(Passport%in%row_names_2020)
+row_names_2008<-visa_2008_1$Passport
+visa_2008_2<-visa_2008_1%>%select(Passport,all_of(intersect(colnames(visa_2008_1), row_names_2008)))
+```
+
+
+```{r}
+visa_2008_3 <- visa_2008_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2008_3)[colnames(visa_2008_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2008_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2008_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2008_5<-visa_2008_4
+col_names <- colnames(visa_2008_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2008_5))) {
+  passport_name <-visa_2008_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2008_5[i, passport_name] <- 0
+  }
+}
+```
+
+
+```{r}
+write.csv(visa_2008_5, "200801.csv", row.names = FALSE)
+```
+
+#2007
+
+```{r}
+#change name
+names(visa_2007_new)[1]<-"Passport"
+#change country name
+visa_2007_new<-visa_2007_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+
+```{r}
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2007_new) <- ifelse(
+  names(visa_2007_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2007_new)],
+  names(visa_2007_new)
+)
+```
+
+
+```{r}
+visa_2007_1<-visa_2007_new%>%filter(Passport%in%row_names_2020)
+row_names_2007<-visa_2007_1$Passport
+visa_2007_2<-visa_2007_1%>%select(Passport,all_of(intersect(colnames(visa_2007_1), row_names_2007)))
+```
+
+
+```{r}
+visa_2007_3 <- visa_2007_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2007_3)[colnames(visa_2007_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2007_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2007_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2007_5<-visa_2007_4
+col_names <- colnames(visa_2007_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2007_5))) {
+  passport_name <-visa_2007_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2007_5[i, passport_name] <- 0
+  }
+}
+```
+
+
+
+```{r}
+write.csv(visa_2007_5, "200701.csv", row.names = FALSE)
+```
+
+
+# 2006
+
+```{r}
+#change name
+names(visa_2006_new)[1]<-"Passport"
+#change country name
+visa_2006_new<-visa_2006_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+
+```{r}
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2006_new) <- ifelse(
+  names(visa_2006_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2006_new)],
+  names(visa_2006_new)
+)
+```
+
+```{r}
+visa_2006_1<-visa_2006_new%>%filter(Passport%in%row_names_2020)
+row_names_2006<-visa_2006_1$Passport
+visa_2006_2<-visa_2006_1%>%select(Passport,all_of(intersect(colnames(visa_2006_1), row_names_2006)))
+```
+
+```{r}
+visa_2006_3 <- visa_2006_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2006_3)[colnames(visa_2006_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2006_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2006_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2006_5<-visa_2006_4
+col_names <- colnames(visa_2006_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2006_5))) {
+  passport_name <-visa_2006_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2006_5[i, passport_name] <- 0
+  }
+}
+```
+
+
+```{r}
+write.csv(visa_2006_5, "200601.csv", row.names = FALSE)
+```
+
+
+#2005
+
+```{r}
+#change name
+names(visa_2005_new)[1]<-"Passport"
+#change country name
+visa_2005_new<-visa_2005_new%>%mutate(
+  Passport=if_else(Passport=="Brunei Darussalam","Brunei",Passport),
+  Passport=if_else(Passport=="Congo, the Democratic Republic of the","DR Congo",Passport),
+  Passport=if_else(Passport=="Iran, Islamic Republic of","Iran",Passport),
+  Passport=if_else(Passport=="Korea, Republic of","South Korea",Passport),
+  Passport=if_else(Passport=="United States of America","United States",Passport),
+  Passport=if_else(Passport=="Syrian Arab Republic","Syria",Passport),
+  Passport=if_else(Passport=="Vietnam, Socialist Rep of","Vietnam",Passport),
+  Passport=if_else(Passport=="Korea, Democratic People’s Republic of","North Korea",Passport),
+  Passport=if_else(Passport=="Libyan Arab Jamahiriya","Libya",Passport),
+  Passport=if_else(Passport=="Timor Leste","Timor-Leste",Passport),
+  Passport=if_else(Passport=="Macau","Macao",Passport),
+  Passport=if_else(Passport=="Tanzania, United Republic of","Tanzania",Passport),
+  Passport=if_else(Passport=="Kazachstan","Kazakhstan",Passport),
+  Passport=if_else(Passport=="Slovak Republic","Slovakia",Passport),
+  Passport=if_else(Passport=="Moldova, Republic of","Moldova",Passport),
+  Passport=if_else(Passport=="Russian Federation","Russia",Passport),
+  Passport=if_else(Passport=="Lao People’s Democratic Republic","Laos",Passport),
+  Passport=if_else(Passport=="Macedonia, the former Yugoslav Republic of","North Macedonia",Passport)
+)
+```
+
+
+```{r}
+col_rename_map <- c(
+  "Brunei Darussalam" = "Brunei",
+  "Congo, the Democratic Republic of the" = "DR Congo",
+  "Iran, Islamic Republic of" = "Iran",
+  "Korea, Republic of" = "South Korea",
+  "United States of America" = "United States",
+  "Syrian Arab Republic" = "Syria",
+  "Vietnam, Socialist Rep of" = "Vietnam",
+  "Korea, Democratic People’s Republic of" = "North Korea",
+  "Libyan Arab Jamahiriya" = "Libya",
+  "Timor Leste" = "Timor-Leste",
+  "Macau" = "Macao",
+  "Tanzania, United Republic of" = "Tanzania",
+  "Kazachstan" = "Kazakhstan",
+  "Slovak Republic" = "Slovakia",
+  "Moldova, Republic of" = "Moldova",
+  "Russian Federation" = "Russia",
+  "Lao People’s Democratic Republic" = "Laos",
+  "Macedonia, the former Yugoslav Republic of" = "North Macedonia"
+)
+
+names(visa_2005_new) <- ifelse(
+  names(visa_2005_new) %in% names(col_rename_map),
+  col_rename_map[names(visa_2005_new)],
+  names(visa_2005_new)
+)
+```
+
+```{r}
+visa_2005_1<-visa_2005_new%>%filter(Passport%in%row_names_2020)
+row_names_2005<-visa_2005_1$Passport
+visa_2005_2<-visa_2005_1%>%select(Passport,all_of(intersect(colnames(visa_2005_1), row_names_2005)))
+```
+
+```{r}
+visa_2005_3 <- visa_2005_2 %>%
+  mutate(across(-Passport, ~ case_when(
+    . %in% c(0) ~ 1,
+    . %in% c(1, 2) ~ 0,
+    TRUE ~ NA_real_
+  )))
+```
+
+
+
+
+```{r}
+# Get the list of column names excluding "Passport"
+col_names <- colnames(visa_2005_3)[colnames(visa_2005_3) != "Passport"]
+
+# Filter rows where Passport value matches one of the column names
+visa_filtered <- visa_2005_3 %>% filter(Passport %in% col_names)
+
+# Select columns where the column name is in the filtered Passport values
+col_match <- intersect(col_names, visa_filtered$Passport)
+
+# Final filtered data: keep only rows and columns that match
+visa_2005_4 <- visa_filtered %>%
+  select(Passport, all_of(col_match)) %>%
+  filter(Passport %in% col_match)
+
+#if column and row is the same country, code as 0
+
+visa_2005_5<-visa_2007_5
+col_names <- colnames(visa_2005_5)[-1]
+
+# Loop through each row
+for (i in seq_len(nrow(visa_2005_5))) {
+  passport_name <-visa_2005_5$Passport[i]
+  
+  # If the passport name is also a column name, set that cell to 0
+  if (passport_name %in% col_names) {
+    visa_2005_5[i, passport_name] <- 0
+  }
+}
+```
+
+```{r}
+write.csv(visa_2005_5, "200501.csv", row.names = FALSE)
+```
+
