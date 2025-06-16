@@ -1,0 +1,1065 @@
+---
+title: "SNA_reciprocity"
+author: "Yingyue Jiang"
+date: "2025-04-19"
+output: pdf_document
+---
+This code is for the analysis of the line charts of the number of visa-free countries a passport-hold can enter and the number of countries a country that allows citizens from other countries can enter. I will first try to plot the line chart for 17 selected countries and then for different continents and developed and developing countries
+
+As I want to see the difference before and after 2019, so I add years before around 2010, and as there might be some countries not in the previous year, I might need to select some countries 
+
+```{r}
+rm(list = ls())
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(fig.height = 4)
+knitr::opts_chunk$set(fig.width = 6)
+knitr::opts_chunk$set(fig.align="center")
+`%notin%` <- Negate(`%in%`)
+library(kableExtra)
+library(haven)
+library(purrr)
+library(dplyr)
+library(igraph)
+library(ggplot2)
+library(sna) #data visualiztion, cleaning, network analysis
+library(tidyr)
+library(network)
+library(readxl)
+```
+
+# import data
+
+```{r}
+setwd("/Users/yingyuejiang/Desktop/Brown University/SOC 2960/visa policy/visa_data/visa")
+#visa_202312_new<-read.csv("202501.csv")
+```
+
+
+```{r}
+setwd("/Users/yingyuejiang/Desktop/Brown University/SOC 2960/visa policy/visa_data/visa")
+#self constructed
+visa_201301<-read.csv("201301.csv")
+visa_201201<-read.csv("201201.csv")
+visa_201101<-read.csv("201101.csv")
+visa_201001<-read.csv("201001.csv")
+visa_200901<-read.csv("200901.csv")
+visa_200801<-read.csv("200801.csv")
+visa_200701<-read.csv("200701.csv")
+visa_200601<-read.csv("200601.csv")
+visa_200501<-read.csv("200501.csv")
+#already collected
+visa_202002<-read.csv("202002.csv")
+visa_202003<-read.csv("202003.csv")
+visa_202004<-read.csv("202004.csv")
+visa_202005<-read.csv("202005.csv")
+visa_202011<-read.csv("202011.csv")
+visa_202101<-read.csv("202101.csv")
+visa_202102<-read.csv("202102.csv")
+visa_202105<-read.csv("202105.csv")
+visa_202108<-read.csv("202108.csv")
+visa_202109<-read.csv("202109.csv")
+visa_202110<-read.csv("202110.csv")
+visa_202111<-read.csv("202111.csv")
+visa_202112<-read.csv("202112.csv")
+visa_202201<-read.csv("202201.csv")
+visa_202202<-read.csv("202202.csv")
+visa_202203<-read.csv("202203.csv")
+visa_202204<-read.csv("202204.csv")
+visa_202205<-read.csv("202205.csv")
+visa_202206<-read.csv("202206.csv")
+visa_202207<-read.csv("202207.csv")
+visa_202208<-read.csv("202208.csv")
+visa_202209<-read.csv("202209.csv")
+visa_202210<-read.csv("202210.csv")
+visa_202211<-read.csv("202211.csv")
+visa_202212<-read.csv("202212.csv")
+visa_202301<-read.csv("202301.csv")
+visa_202302<-read.csv("202302.csv")
+visa_202304<-read.csv("202304.csv")
+visa_202305<-read.csv("202305.csv")
+visa_202306<-read.csv("202306.csv")
+visa_202307<-read.csv("202307.csv")
+visa_202308<-read.csv("202308.csv")
+visa_202309<-read.csv("202309.csv")
+visa_202310<-read.csv("202310.csv")
+visa_202311<-read.csv("202311.csv")
+visa_202312<-read.csv("202312.csv")
+visa_202401<-read.csv("202401.csv")
+visa_202402<-read.csv("202402.csv")
+visa_202403<-read.csv("202403.csv")
+visa_202404<-read.csv("202404.csv")
+visa_202405<-read.csv("202405.csv")
+visa_202406<-read.csv("202406.csv")
+visa_202407<-read.csv("202407.csv")
+visa_202408<-read.csv("202408.csv")
+visa_202410<-read.csv("202410.csv")
+visa_202411<-read.csv("202411.csv")
+visa_202412<-read.csv("202412.csv")
+visa_202501<-read.csv("202501.csv")
+
+```
+
+
+```{r}
+#need to select only 184 countries
+# Vector of all dataset names
+visa_201301<-visa_201301%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+visa_201201<-visa_201201%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+visa_201101<-visa_201101%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+visa_201001<-visa_201001%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+visa_200901<-visa_200901%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+visa_200801<-visa_200801%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+visa_200701<-visa_200701%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+visa_200601<-visa_200601%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+visa_200501<-visa_200501%>%
+  mutate(across(-Passport, ~ ifelse(. %in% (1), 1, "no")))
+
+visa_datasets <- c(
+  "visa_202002", "visa_202003", "visa_202004", "visa_202005", "visa_202011",
+  "visa_202101", "visa_202102", "visa_202105", "visa_202108", "visa_202109",
+  "visa_202110", "visa_202111", "visa_202112", "visa_202201", "visa_202202",
+  "visa_202203", "visa_202204", "visa_202205", "visa_202206", "visa_202207",
+  "visa_202208", "visa_202209", "visa_202210", "visa_202211", "visa_202212",
+  "visa_202301", "visa_202302", "visa_202304", "visa_202305", "visa_202306",
+  "visa_202307", "visa_202308", "visa_202309", "visa_202310", "visa_202311",
+  "visa_202312", "visa_202401", "visa_202402", "visa_202403", "visa_202404",
+  "visa_202405", "visa_202406", "visa_202407", "visa_202408", "visa_202410",
+  "visa_202411", "visa_202412", "visa_202501"
+)
+
+# Filter all datasets to only include rows with Passport in visa_201301$passport
+for (dataset in visa_datasets) {
+  df <- get(dataset)
+  df <- df %>% filter(Passport %in% visa_201301$Passport)
+  # Replace "." with " " in column names
+  colnames(df) <- gsub("\\.", " ", colnames(df))
+
+  # Convert Passport to character to avoid factor-related if_else issues
+
+  # Standardize Passport values
+  df$Passport[df$Passport == "Guinea-Bissau"] <- "Guinea Bissau"
+  df$Passport[df$Passport == "Timor-Leste"] <- "Timor Leste"
+ 
+  # Now filter columns to keep only "Passport" and those that match values in Passport column
+  row_names <- df$Passport
+  cols_to_keep <- intersect(colnames(df), row_names)
+  df <- df %>% select(Passport, all_of(cols_to_keep))
+
+  # Save back the modified dataset
+  assign(dataset, df)
+}
+```
+
+
+
+```{r}
+# Define visa-free values
+visa_free_values <- c("90", "30", "180", "28", "21", "360", "60", "240", "14",
+                      "120", "42", "15", "45", "150", "10", "7", 
+                      "VOA", "VF", "visa on arrival", "visa free", "31","1")
+
+
+# Grab all objects in the environment that start with "visa_"
+visa_names <- ls(pattern = "^visa_\\d{6}$")
+visa_list <- mget(visa_names)
+
+library(dplyr)
+
+visa_list <- lapply(visa_list, function(df) {
+  df %>% mutate(across(everything(), ~ ifelse(. %in% visa_free_values, "visa free", .)))
+})
+
+list2env(visa_list, envir = .GlobalEnv)
+```
+
+#plot 17 countries 
+
+```{r}
+target_passports <- c("Afghanistan", "Brazil", "China", "Germany", "Iran",
+                      "Japan", "Kenya", "Russia", "Somalia", "South Africa",
+                      "South Korea", "United States")
+# Grab all visa datasets you want to filter
+visa_names <- ls(pattern = "^visa_\\d{6}$")
+visa_list <- mget(visa_names)
+# Filter each dataset and store with new names
+selected_list <- lapply(visa_list, function(df) {
+  df %>% filter(Passport %in% target_passports)
+})
+
+# Rename each selected dataframe
+names(selected_list) <- paste0("selected_", gsub("visa_", "", names(visa_list)))
+
+# Save each one back to the global environment
+list2env(selected_list, envir = .GlobalEnv)
+
+```
+
+
+```{r}
+selected_names <- ls(pattern = "^selected_\\d{6}$")
+
+# Step 2: Bind all with YearMonth column added
+selected_all <- selected_names %>%
+  map_dfr(~ {
+    df <- get(.x)
+    df[] <- lapply(df, as.character)
+    ym <- gsub("selected_", "", .x)
+    df %>% mutate(YearMonth = as.Date(paste0(substr(ym, 1, 4), "-", substr(ym, 5, 6), "-01")),
+                  VF_count = rowSums(. == "visa free"))
+  })
+```
+
+```{r}
+selected_all %>%
+  filter(Passport %in% c("Afghanistan", "United States")) %>%
+  select(Passport, VF_count, YearMonth)
+```
+
+
+
+```{r}
+selected_all%>%filter(Passport%in%c("Afghanistan","United States"))%>%select(VF_count,YearMonth)
+```
+
+
+
+## plot countries that have access to 
+
+```{r}
+library(ggplot2)
+library(scales)
+
+# Ensure YearMonth is in Date format
+selected_all$YearMonth <- as.Date(paste0(selected_all$YearMonth, "-01"))
+
+# Define yearly x-axis breaks
+date_seq <- seq.Date(from = as.Date("2005-01-01"), to = as.Date("2025-01-01"), by = "12 month")
+selected_all <- selected_all %>%
+  arrange(Passport, YearMonth)
+# Plot
+ggplot(selected_all, aes(x = YearMonth, y = VF_count, color = Passport, group = Passport)) +
+  geom_line(size = 1) +
+  geom_point(size = 1) +
+  labs(
+    title = "Number of visa-free countries for passport holders",
+    subtitle = "2005-2025",
+    x = "Year",
+    y = "Number of Visa-Free Countries",
+    color = "Passport"
+  ) +
+  scale_x_date(labels = date_format("%Y-%m"), breaks = date_seq) +
+  scale_y_continuous(limits = c(0, 180), breaks = seq(0, 200, by = 20)) +
+  scale_color_brewer(palette = "Paired") +
+  theme_minimal(base_size = 11) +
+  theme(
+    axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    legend.background = element_rect(fill = "white", color = NA)
+  )
+
+ggsave("visa_0525.jpg", width = 10, height = 6, dpi = 300) 
+```
+
+
+
+
+## plot countries that they grant visa-free access to 
+
+```{r}
+# Get all visa_* dataset names
+visa_names <- ls(pattern = "^visa_\\d{6}$")
+
+# Loop through and update names in-place
+for (name in visa_names) {
+  df <- get(name)
+  names(df) <- gsub("\\.", " ", names(df))  # Replace dots with spaces
+  assign(name, df)  # Save it back to the same name
+}
+
+```
+
+
+```{r}
+library(dplyr)
+library(purrr)
+library(tibble)
+
+# Get all visa_* dataset names
+visa_names <- ls(pattern = "^visa_\\d{6}$")
+target_passports <- c("Afghanistan", "Brazil", "China", "Germany", "Iran",
+                      "Japan", "Kenya", "Russia", "Somalia", "South Africa",
+                      "South Korea", "United States")
+
+# Process each: select columns, transpose, convert to data frame, and add YearMonth
+transposed_all <- visa_names %>%
+  map_dfr(~ {
+    df <- get(.x)
+    ym <- gsub("visa_", "", .x)
+    year_month <- as.Date(paste0(substr(ym, 1, 4), "-", substr(ym, 5, 6), "-01"))
+    
+    # Keep only columns that are present
+    existing_countries <- intersect(target_passports, colnames(df))
+    df_selected <- df %>% select(all_of(existing_countries))
+
+    # Transpose and reformat
+    df_transposed <- as.data.frame(t(df_selected)) %>%
+      rownames_to_column(var = "Country") %>%
+      mutate(YearMonth = year_month)
+    
+    return(df_transposed)
+  })
+
+```
+
+```{r}
+transposed_all%>%filter()
+```
+
+```{r}
+View(transposed_all)
+```
+
+
+
+```{r}
+transposed_all <- transposed_all %>%
+  mutate(VF_count= rowSums(select(., where(is.character)) == "visa free", na.rm = TRUE))
+
+# Ensure YearMonth is in Date format
+transposed_all$YearMonth <- as.Date(paste(transposed_all$YearMonth, "01", sep = "-"), format = "%Y-%m-%d")
+date_seq <- seq.Date(from = as.Date("2005-01-01"), to = as.Date("2025-01-01"), by = "12 month")
+# Plotting a line plot for VF_count over time by Passport
+ggplot(transposed_all, aes(x = YearMonth, y = VF_count, color = Country, group = Country)) +
+  geom_line(size = 1) +  # Line plot for each passport
+  geom_point(size = 1) +  # Adding points for clarity
+  labs(title = "Number of countries to which the selected country grants visa-free access",
+       subtitle="2005-2025",
+       x = "Year-Month",
+       y = "Number of Countries",
+       color = "Receiving country") +
+  theme_minimal() +
+  scale_x_date(labels = date_format("%Y-%m"),breaks = date_seq) +  # Formatting x-axis as date
+  scale_y_continuous(limits = c(0,200),breaks=seq(0, 200, by = 20))+
+   scale_color_brewer(palette = "Paired")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+# Rotate x-axis labels for readability 
+  theme(
+    axis.text.x = element_text(size = 8, angle = 45, hjust = 1),  # Reduce font size of x-axis
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    legend.background = element_rect(fill = "white", color = NA), 
+    panel.grid = element_blank() #remove grid
+  )
+ggsave("grant_0525.jpg", width = 10, height = 6, dpi = 300) 
+```
+
+
+
+#plot continents
+
+```{r}
+setwd("/Users/yingyuejiang/Desktop/Brown University/SOC 2960/visa policy/visa_data/visa")
+library(readxl)
+country_list<-read_excel("country_list.xlsx")
+```
+
+
+```{r}
+#change country name
+visa_201301<-visa_201301%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+visa_201201<-visa_201201%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+visa_201101<-visa_201101%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+visa_201001<-visa_201001%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+visa_200901<-visa_200901%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+visa_200801<-visa_200801%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+visa_200701<-visa_200701%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+visa_200601<-visa_200601%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+visa_200501<-visa_200501%>%mutate(Passport=if_else(Passport%in%c("Guinea-Bissau"),"Guinea Bissau",Passport),
+                                  Passport=if_else(Passport%in%c("Timor-Leste"),"Timor Leste",Passport))
+```
+
+
+```{r}
+country_common<-country_list%>%filter(Passport%in%visa_201301$Passport)
+```
+
+
+
+```{r}
+
+process_visa_table <- function(df_name) {
+  # Retrieve the data frame from the global environment
+  df <- get(df_name, envir = .GlobalEnv)
+
+  # Extract time value from table name (e.g., "visa_202501" -> 202501)
+  time_value <- as.numeric(gsub("\\D", "", df_name))
+
+  # Count occurrences of "visa free" in each row (excluding the 'passport' column)
+  df$visa_free_count <- rowSums(df == "visa free", na.rm = TRUE)
+
+  # Add time column
+  df$time <- time_value
+  df$developed <-country_common$Developed
+  df$continent <-country_common$Continent
+
+  # Select relevant columns
+  df_processed <- df %>%
+    select(Passport, visa_free_count, time,developed,continent)
+
+  return(df_processed)
+}
+
+```
+
+
+
+```{r}
+library(dplyr)
+
+process_visa_table_before <- function(df_name) {
+  # Retrieve the data frame from the global environment
+  df <- get(df_name, envir = .GlobalEnv)
+
+  # Extract time value from table name (e.g., "visa_202501" -> 202501)
+  time_value <- as.numeric(gsub("\\D", "", df_name))
+
+  # Count occurrences of "visa free" in each row (excluding the 'Passport' column)
+  df$visa_free_count <- rowSums(df[, -1] == "visa free", na.rm = TRUE)
+
+  # Add time column
+  df$time <- time_value
+
+  # Merge with country_common by Passport
+  df_merged <- df %>%
+    left_join(country_common, by = "Passport")
+
+  # Select relevant columns
+  df_processed <- df_merged %>%
+    select(Passport, visa_free_count, time, Developed, Continent) %>%
+    rename(developed = Developed, continent = Continent)
+
+  return(df_processed)
+}
+
+```
+
+
+
+```{r}
+#before 2005
+new_201301<-process_visa_table_before("visa_201301")
+new_201201<-process_visa_table_before("visa_201201")
+new_201101<-process_visa_table_before("visa_201101")
+new_201001<-process_visa_table_before("visa_201001")
+new_200901<-process_visa_table_before("visa_200901")
+new_200801<-process_visa_table_before("visa_200801")
+new_200701<-process_visa_table_before("visa_200701")
+new_200601<-process_visa_table_before("visa_200601")
+new_200501<-process_visa_table_before("visa_200501")
+```
+
+
+```{r}
+
+#2020
+new_202002<-process_visa_table("visa_202002")
+new_202003<-process_visa_table("visa_202003")
+new_202004<-process_visa_table("visa_202004")
+new_202005<-process_visa_table("visa_202005")
+new_202011<-process_visa_table("visa_202011")
+#2021
+new_202102<-process_visa_table("visa_202102")
+new_202105<-process_visa_table("visa_202105")
+new_202108<-process_visa_table("visa_202108")
+new_202109<-process_visa_table("visa_202109")
+new_202110<-process_visa_table("visa_202110")
+new_202111<-process_visa_table("visa_202111")
+new_202112<-process_visa_table("visa_202112")
+#2022
+new_202201<-process_visa_table("visa_202201")
+new_202202<-process_visa_table("visa_202202")
+new_202203<-process_visa_table("visa_202203")
+new_202204<-process_visa_table("visa_202204")
+new_202205<-process_visa_table("visa_202205")
+new_202206<-process_visa_table("visa_202206")
+new_202207<-process_visa_table("visa_202207")
+new_202208<-process_visa_table("visa_202208")
+new_202209<-process_visa_table("visa_202209")
+new_202210<-process_visa_table("visa_202210")
+new_202211<-process_visa_table("visa_202211")
+new_202212<-process_visa_table("visa_202212")
+#2023
+new_202301<-process_visa_table("visa_202301")
+new_202302<-process_visa_table("visa_202302")
+new_202304<-process_visa_table("visa_202304")
+new_202305<-process_visa_table("visa_202305")
+new_202306<-process_visa_table("visa_202306")
+new_202307<-process_visa_table("visa_202307")
+new_202308<-process_visa_table("visa_202308")
+new_202309<-process_visa_table("visa_202309")
+new_202310<-process_visa_table("visa_202310")
+new_202311<-process_visa_table("visa_202311")
+new_202312<-process_visa_table("visa_202312")
+#2024
+new_202401<-process_visa_table("visa_202401")
+new_202402<-process_visa_table("visa_202402")
+new_202403<-process_visa_table("visa_202403")
+new_202404<-process_visa_table("visa_202404")
+new_202405<-process_visa_table("visa_202405")
+new_202406<-process_visa_table("visa_202406")
+new_202407<-process_visa_table("visa_202407")
+new_202408<-process_visa_table("visa_202408")
+new_202410<-process_visa_table("visa_202410")
+new_202411<-process_visa_table("visa_202411")
+new_202412<-process_visa_table("visa_202412")
+#2025
+new1_202501<-process_visa_table("visa_202501")
+```
+
+#developed
+
+```{r}
+total<-rbind(new_200501,new_200601,new_200701,new_200801,new_200901,new_201001,new_201101,new_201201,new_201301,new_202002,new_202003,new_202004,new_202005,new_202011,new_202102,new_202105,new_202108,new_202109,new_202110,new_202111,new_202112,new_202201,new_202202,new_202203,new_202204,new_202205,new_202206,new_202207,new_202208,new_202209,new_202210,new_202211,new_202212,new_202301,new_202302,new_202304,new_202305,new_202306,new_202307,new_202308,new_202309,new_202310,new_202311,new_202312,new_202401,new_202402,new_202403,new_202404,new_202405,new_202406,new_202407,new_202408,new_202410,new_202411,new_202412,new1_202501)
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+total_new<-total%>%
+  mutate(
+    time_date = as.Date(paste0(time, "01"), format = "%Y%m%d"),  # Convert to Date
+    time_diff = as.numeric(interval(as.Date("2020-02-01"), time_date) / months(1)+1) # Compute month difference
+  )
+```
+
+
+```{r}
+group<-total_new%>%group_by(continent,time_date)%>%
+ summarise(
+   mean_visa_free=mean(visa_free_count)
+ )
+global_avg <- total_new %>%
+  group_by(time_date) %>%
+  summarise(overall_mean = mean(visa_free_count, na.rm = TRUE), .groups = "drop")
+group_developed<-total_new%>%group_by(developed,time_date)%>%
+ summarise(
+   mean_visa_free=mean(visa_free_count)
+ )
+```
+
+```{r}
+unique(group$continent)
+```
+
+
+
+```{r}
+ggplot() +
+  geom_line(data = group, aes(x = time_date, y = mean_visa_free, color = continent, group = continent)) +
+  geom_point(data = group, aes(x = time_date, y = mean_visa_free, color = continent)) +
+  geom_line(data = global_avg, aes(x = time_date, y = overall_mean), color = "black", size = 1, linetype = "dashed") +
+  scale_color_brewer(palette = "Set1")+
+  labs(
+    title = "Mean number of visa-free countries for passport holders by continents",
+    subtitle = "Dashed black line shows overall average across all continents at each time point",
+    x = "",
+    y = "Mean number visa-free countries",
+    color = "Continent"
+  ) +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "12 months") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#ggsave("change_continent.jpg",width = 10, height = 6, dpi = 300)
+```
+
+
+
+
+#plot continents and developed together
+```{r}
+ggplot() +
+  # Continent lines
+  geom_line(data = group, aes(x = time_date, y = mean_visa_free, color = continent, group = continent), size = 1) +
+  geom_point(data = group, aes(x = time_date, y = mean_visa_free, color = continent)) +
+
+  # Developed status lines (manual color, thicker, semi-transparent)
+  geom_line(data = group_developed, aes(x = time_date, y = mean_visa_free, linetype = factor(developed)), color = "grey20", size = 1.2, alpha = 0.5) +
+
+  # Global average line
+  geom_line(data = global_avg, aes(x = time_date, y = overall_mean), color = "black", size = 1, linetype = "dashed") +
+
+  # Styling
+  scale_color_brewer(palette = "Set1") +
+  scale_linetype_manual(
+    values = c("0" = "dotdash", "1" = "solid"),
+    labels = c("Developing", "Developed")
+  ) +
+  labs(
+    title = "Mean number of visa-free countries for passport holders by continents",
+    #subtitle = "dashed black line = global average; grey lines = developed vs developing",
+    x = "",
+    y = "Mean number of visa-free countries",
+    color = "Continent",
+    linetype = "Development status",
+     caption = "Dashed black line = global average; grey lines = developed vs developing",
+  ) +
+  scale_x_date(
+  date_labels = "%Y-%m",
+  breaks = seq(as.Date("2005-01-01"), as.Date("2025-01-01"), by = "1 year"),
+  limits = c(as.Date("2005-01-01"), as.Date("2025-01-01"))
+)+
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("change_all1.jpg",width = 10, height = 6, dpi = 300)
+```
+
+```{r}
+# Filter datasets to only include dates from 2020-02-01 onwards
+group_filtered <- subset(group, time_date >= as.Date("2020-02-01"))
+group_developed_filtered <- subset(group_developed, time_date >= as.Date("2020-02-01"))
+global_avg_filtered <- subset(global_avg, time_date >= as.Date("2020-02-01"))
+
+ggplot() +
+  # Continent lines
+  geom_line(data = group_filtered, aes(x = time_date, y = mean_visa_free, color = continent, group = continent), size = 1) +
+  geom_point(data = group_filtered, aes(x = time_date, y = mean_visa_free, color = continent)) +
+
+  # Developed status lines
+  geom_line(data = group_developed_filtered, aes(x = time_date, y = mean_visa_free, linetype = factor(developed)), color = "grey20", size = 1.2, alpha = 0.5) +
+
+  # Global average line
+  geom_line(data = global_avg_filtered, aes(x = time_date, y = overall_mean), color = "black", size = 1, linetype = "dashed") +
+
+  # Styling
+  scale_color_brewer(palette = "Set1") +
+  scale_linetype_manual(
+    values = c("0" = "dotdash", "1" = "solid"),
+    labels = c("Developing", "Developed")
+  ) +
+  labs(
+    title = "Mean number of visa-free countries for passport holders by continents",
+    x = "",
+    y = "Mean number of visa-free countries",
+    color = "Continent",
+    linetype = "Development status",
+    caption = "Dashed black line = global average; grey lines = developed vs developing"
+  ) +
+  scale_x_date(
+    date_labels = "%Y-%m",
+    breaks = seq(as.Date("2020-02-01"), as.Date("2025-01-01"), by = "1 year"),
+    limits = c(as.Date("2020-02-01"), as.Date("2025-01-01"))
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("change_part1.jpg", width = 10, height = 6, dpi = 300)
+
+```
+
+
+
+#receiving country
+
+
+
+
+```{r}
+column_trans<- function(df_name) {
+  df <- get(df_name)
+  ym <- gsub("visa_", "", df_name)
+  date <- as.Date(paste0(substr(ym, 1, 4), "-", substr(ym, 5, 6), "-01"))
+
+  counts <- colSums(df == "visa free", na.rm = TRUE)
+  tibble(
+    Passport = names(counts),
+    visa_free_count = as.integer(counts),
+    YearMonth = date
+  ) %>%
+    left_join(country_common, by = c("Passport" = "Country")) %>%
+    rename(continent = Continent, developed = Developed)
+}
+
+```
+
+
+```{r}
+library(dplyr)
+library(purrr)
+library(tibble)
+
+column_trans<- function(df_name) {
+  df <- get(df_name)
+  ym <- gsub("visa_", "", df_name)
+  date <- as.Date(paste0(substr(ym, 1, 4), "-", substr(ym, 5, 6), "-01"))
+  
+  # Count "visa free" per Passport column
+  counts <- colSums(df == "visa free", na.rm = TRUE)
+  
+  # Build a tibble with Passport, counts, and YearMonth
+  tibble(
+    Passport       = names(counts),
+    visa_free_count = as.integer(counts),
+    YearMonth      = date
+  ) %>%
+    # Now join by Passport (same name in both df and country_list)
+    left_join(country_common, by = "Passport") %>%
+    # Rename the joined columns
+    rename(
+      continent = Continent,
+      developed = Developed
+    )
+}
+
+# List all your visa_YYYYMM data frames
+visa_table_names <- ls(pattern = "^visa_\\d{6}$")
+
+# Apply and row-bind them all
+all_processed <- map_dfr(visa_table_names, column_trans)
+
+```
+
+
+
+```{r}
+all_processed_new<-all_processed%>%filter(Passport!="Passport")%>%drop_na(continent)
+```
+
+```{r}
+receive_group<-all_processed_new%>%group_by(continent,YearMonth)%>%
+ summarise(
+   mean_visa_free=mean(visa_free_count)
+ )
+```
+
+
+```{r}
+
+receive_avg <-all_processed_new %>%
+  group_by(YearMonth) %>%
+  summarise(overall_mean = mean(visa_free_count, na.rm = TRUE), .groups = "drop")
+receive_develop<-all_processed_new%>%drop_na(continent)%>%group_by(developed,YearMonth)%>%
+ summarise(
+   mean_visa_free=mean(visa_free_count)
+ )
+```
+
+
+```{r}
+ggplot() +
+  # Continent lines
+  geom_line(data = receive_group, aes(x = YearMonth, y = mean_visa_free, color = continent, group = continent), size = 1) +
+  geom_point(data = receive_group, aes(x = YearMonth, y = mean_visa_free, color = continent)) +
+
+  # Developed status lines (manual color, thicker, semi-transparent)
+  geom_line(data = receive_develop, aes(x = YearMonth, y = mean_visa_free, linetype = factor(developed)), color = "grey20", size = 1.2, alpha = 0.5) +
+
+  # Global average line
+  geom_line(data = receive_avg, aes(x = YearMonth, y = overall_mean), color = "black", size = 1, linetype = "dashed") +
+
+  # Styling
+  scale_color_brewer(palette = "Set1") +
+  scale_linetype_manual(
+    values = c("0" = "dotdash", "1" = "solid"),
+    labels = c("Developing", "Developed")
+  ) +
+  labs(
+    title = "Mean number of countries to which the selected country grant visa-free access by continents",
+    #subtitle = "dashed black line = global average; grey lines = developed vs developing",
+    x = "",
+    y = "Mean number of countries",
+    color = "Continent",
+    linetype = "Development status",
+     caption = "Dashed black line = global average; grey lines = developed vs developing",
+  ) +
+  scale_x_date(
+  date_labels = "%Y-%m",
+  breaks = seq(as.Date("2005-01-01"), as.Date("2025-01-01"), by = "1 year"),
+  limits = c(as.Date("2005-01-01"), as.Date("2025-01-01"))
+)+
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#ggsave("receive_all.jpg",width = 10, height = 6, dpi = 300)
+```
+
+```{r}
+# Filter data
+receive_group_filtered <- subset(receive_group, YearMonth >= as.Date("2020-02-01"))
+receive_develop_filtered <- subset(receive_develop, YearMonth >= as.Date("2020-02-01"))
+receive_avg_filtered <- subset(receive_avg, YearMonth >= as.Date("2020-02-01"))
+
+# Plot
+ggplot() +
+  # Continent lines
+  geom_line(data = receive_group_filtered, aes(x = YearMonth, y = mean_visa_free, color = continent, group = continent), size = 1) +
+  geom_point(data = receive_group_filtered, aes(x = YearMonth, y = mean_visa_free, color = continent)) +
+
+  # Developed status lines
+  geom_line(data = receive_develop_filtered, aes(x = YearMonth, y = mean_visa_free, linetype = factor(developed)), color = "grey20", size = 1.2, alpha = 0.5) +
+
+  # Global average line
+  geom_line(data = receive_avg_filtered, aes(x = YearMonth, y = overall_mean), color = "black", size = 1, linetype = "dashed") +
+
+  # Styling
+  scale_color_brewer(palette = "Set1") +
+  scale_linetype_manual(
+    values = c("0" = "dotdash", "1" = "solid"),
+    labels = c("Developing", "Developed")
+  ) +
+  labs(
+    title = "Mean number of countries to which the selected country grants visa-free access by continent",
+    x = "",
+    y = "Mean number of countries",
+    color = "Continent",
+    linetype = "Development status",
+    caption = "Dashed black line = global average; grey lines = developed vs developing"
+  ) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "12 months") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("receive_part.jpg",width = 10, height = 6, dpi = 300)
+```
+
+
+
+#reciprocity
+```{r}
+recip_table<- function(df) {
+  # Extract time from the object name
+  df_name <- deparse(substitute(df))
+  time <- substr(df_name, nchar(df_name) - 5, nchar(df_name))
+  
+  # Step 0: Clean column names
+  colnames(df) <- gsub("\\.", " ", colnames(df))
+  
+  # Step 0.5: Clean Passport names
+  df <- df %>%
+    mutate(
+      Passport = if_else(Passport == "Guinea-Bissau", "Guinea Bissau", Passport),
+      Passport = if_else(Passport == "Timor-Leste", "Timor Leste", Passport)
+    )
+  
+  # Step 1: Reorder columns to match Passport column
+  passport_order <- as.character(df$Passport)
+  passport_order <- passport_order[passport_order %in% colnames(df)]
+  all_columns <- c("Passport", passport_order)
+  all_columns <- all_columns[all_columns %in% colnames(df)]
+  df <- df[, all_columns]
+  
+  # Step 2: Convert visa types to binary
+  df <- df %>%
+    mutate(across(everything(), as.character)) %>%
+    mutate(across(everything(), ~ ifelse(. %in% c("visa free", "visa on arrival"), 1, .))) %>%
+    mutate(across(everything(), ~ ifelse(. %in% c("no admission", "-1", "e-visa", "eta", "visa required", "VR", "ETA","covid ban","EVW","Hayya Entry Permit","no"), 0, .)))
+  
+  # Step 3: Set row names and drop Passport column
+  rownames(df) <- df$Passport
+  df$Passport <- NULL
+  
+  # Step 4: Convert to numeric matrix
+  matrix_result <- as.matrix(df)
+  matrix_result <- apply(matrix_result, c(1, 2), as.numeric)
+  
+  # Step 5: Create igraph object
+  graph <- graph_from_adjacency_matrix(adjmatrix = matrix_result, mode = "directed")
+  
+  # Step 6: Calculate metrics
+  reciprocity_score <- igraph::reciprocity(graph) #Arc-based reciprocity
+  dyad_recip<-igraph::reciprocity(graph,mode="ratio")
+  density <- igraph::edge_density(graph)
+  
+  # Step 7: Return result as a data frame
+  return(data.frame(
+    time = time,
+    reciprocity_score = reciprocity_score,
+    density = density,
+    dyad_recip= dyad_recip
+  ))
+}
+```
+
+
+
+```{r}
+visa_200501_new1<-recip_table(visa_200501)
+visa_200601_new1<-recip_table(visa_200601)
+visa_200701_new1<-recip_table(visa_200701)
+visa_200801_new1<-recip_table(visa_200801)
+visa_200901_new1<-recip_table(visa_200901)
+visa_201001_new1<-recip_table(visa_201001)
+visa_201101_new1<-recip_table(visa_201101)
+visa_201201_new1<-recip_table(visa_201201)
+visa_201301_new1<-recip_table(visa_201301)
+
+```
+
+
+
+```{r}
+visa_202002_new1<-recip_table(visa_202002)
+visa_202003_new1<-recip_table(visa_202003)
+visa_202004_new1<-recip_table(visa_202004)
+visa_202005_new1<-recip_table(visa_202005)
+visa_202011_new1<-recip_table(visa_202011)
+visa_202101_new1<-recip_table(visa_202101)
+visa_202102_new1<-recip_table(visa_202102)
+visa_202105_new1<-recip_table(visa_202105)
+visa_202108_new1<-recip_table(visa_202108)
+visa_202109_new1<-recip_table(visa_202109)
+visa_202110_new1<-recip_table(visa_202110)
+visa_202111_new1<-recip_table(visa_202111)
+visa_202112_new1<-recip_table(visa_202112)
+visa_202201_new1<-recip_table(visa_202201)
+visa_202202_new1<-recip_table(visa_202202)
+visa_202203_new1<-recip_table(visa_202203)
+visa_202204_new1<-recip_table(visa_202204)
+visa_202205_new1<-recip_table(visa_202205)
+visa_202206_new1<-recip_table(visa_202206)
+visa_202207_new1<-recip_table(visa_202207)
+visa_202208_new1<-recip_table(visa_202208)
+visa_202209_new1<-recip_table(visa_202209)
+visa_202211_new1<-recip_table(visa_202211)
+visa_202212_new1<-recip_table(visa_202212)
+visa_202301_new1<-recip_table(visa_202301)
+visa_202304_new1<-recip_table(visa_202304)
+visa_202305_new1<-recip_table(visa_202305)
+visa_202306_new1<-recip_table(visa_202306)
+visa_202307_new1<-recip_table(visa_202307)
+visa_202308_new1<-recip_table(visa_202308)
+visa_202309_new1<-recip_table(visa_202309)
+visa_202310_new1<-recip_table(visa_202310)
+visa_202311_new1<-recip_table(visa_202311)
+visa_202312_new1<-recip_table(visa_202312)
+visa_202401_new1<-recip_table(visa_202401)
+visa_202402_new1<-recip_table(visa_202402)
+visa_202403_new1<-recip_table(visa_202403)
+visa_202404_new1<-recip_table(visa_202404)
+visa_202405_new1<-recip_table(visa_202405)
+visa_202406_new1<-recip_table(visa_202406)
+visa_202407_new1<-recip_table(visa_202407)
+visa_202408_new1<-recip_table(visa_202408)
+visa_202410_new1<-recip_table(visa_202410)
+visa_202411_new1<-recip_table(visa_202411)
+visa_202412_new1<-recip_table(visa_202412)
+visa_202501_new1<-recip_table(visa_202501)
+
+```
+
+```{r}
+visa_200501_new1
+```
+
+```{r}
+total_recip<-rbind(visa_200501_new1,visa_200601_new1,visa_200701_new1,visa_200801_new1,visa_200901_new1,visa_201001_new1,visa_201101_new1,visa_201201_new1,visa_201301_new1,visa_202002_new1, visa_202003_new1,visa_202004_new1, visa_202005_new1, visa_202011_new1,visa_202101_new1, visa_202102_new1, visa_202105_new1, visa_202108_new1, visa_202109_new1,visa_202110_new1, visa_202111_new1, visa_202112_new1, visa_202201_new1, visa_202202_new1, visa_202203_new1, visa_202204_new1, visa_202205_new1, visa_202206_new1, visa_202207_new1, visa_202208_new1, visa_202209_new1, visa_202211_new1, visa_202212_new1, visa_202301_new1, visa_202304_new1, visa_202305_new1, visa_202306_new1, visa_202307_new1, visa_202308_new1,visa_202309_new1,visa_202310_new1, visa_202311_new1, visa_202312_new1,visa_202401_new1,visa_202402_new1, visa_202403_new1, visa_202404_new1, visa_202405_new1, visa_202406_new1,visa_202407_new1, visa_202408_new1, visa_202410_new1, visa_202411_new1, visa_202412_new1,visa_202501_new1)
+```
+
+```{r}
+total_recip <- total_recip %>%
+  mutate(
+    time = as.Date(paste0(as.character(time), "01"), format = "%Y%m%d")
+  )
+```
+
+
+```{r}
+ggplot(total_recip, aes(x = time)) +
+  # Reciprocity score as a line
+  geom_line(aes(y = reciprocity_score, color = "Arc-based reciprocity"), size = 1) +
+    geom_line(aes(y = dyad_recip, color = "Dyad-based reciprocity"), size = 1) +
+  geom_line(aes(y = density, color = "Density"), size = 1.2) +
+  # Density score as points
+  geom_point(aes(y = density, color = "Density"), size = 2) +
+   geom_point(aes(y = reciprocity_score, color = "Arc-based reciprocity"), size = 2) +
+   geom_point(aes(y = dyad_recip, color = "Dyad-based reciprocity"), size = 2) +
+  # Manual colors & legend title
+  scale_color_manual(
+    name   = "Measures",
+    values = c("Arc-based reciprocity" = "#1f77b4", "Density" = "#ff7f0e","Dyad-based reciprocity"="red")
+  ) +
+  # Labels and theme
+  labs(
+    title = "Reciprocity and density scores over time",
+    x     = "",
+    y     = "Score"
+  ) +
+  scale_x_date(
+  date_labels = "%Y-%m",
+  breaks = seq(as.Date("2005-01-01"), as.Date("2025-01-01"), by = "1 year"),
+  limits = c(as.Date("2005-01-01"), as.Date("2025-01-01"))
+)+
+  scale_y_continuous(
+    limits = c(0,1),
+    breaks=seq(0,1,by=0.2)
+  )+
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+ggsave("recip_plot_0525.jpg",width = 10, height = 6, dpi = 300)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+ggplot(filter(total_recip, time >= as.Date("2020-02-01")), aes(x = time)) +
+  geom_line(aes(y = reciprocity_score, color = "Arc-based reciprocity"), size = 1) +
+  geom_line(aes(y = dyad_recip, color = "Dyad-based reciprocity"), size = 1) +
+  geom_line(aes(y = density, color = "Density"), size = 1.2) +
+  geom_point(aes(y = density, color = "Density"), size = 2) +
+  geom_point(aes(y = reciprocity_score, color = "Arc-based reciprocity"), size = 2) +
+  geom_point(aes(y = dyad_recip, color = "Dyad-based reciprocity"), size = 2) +
+  scale_color_manual(
+    name = "Measures",
+    values = c("Arc-based reciprocity" = "#1f77b4", "Density" = "#ff7f0e", "Dyad-based reciprocity" = "red")
+  ) +
+  labs(
+    title = "Reciprocity and density scores over time",
+    x = "",
+    y = "Score"
+  ) +
+  scale_x_date(
+    date_labels = "%Y-%m",
+    date_breaks = "1 year",
+    limits = c(as.Date("2020-02-01"), as.Date("2025-01-01"))
+  ) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, by = 0.2)
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+ggsave("recip_plot_2025.jpg",width = 10, height = 6, dpi = 300)
+
+```
+
+
+
+```{r}
+table(country_list$Civilization)%>%prop.table()
+```
+```{r}
+table(new_200501$continent)
+```
+
